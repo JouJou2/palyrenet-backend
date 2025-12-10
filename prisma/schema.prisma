@@ -1,0 +1,698 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  username            String    @unique
+  password            String
+  fullName            String?
+  bio                 String?
+  avatarUrl           String?
+  coverUrl            String?
+  isVerified          Boolean   @default(false)
+  isFlagged           Boolean   @default(false)
+  flagReason          String?
+  isSuspended         Boolean   @default(false)
+  suspendedUntil      DateTime?
+  suspensionReason    String?
+  isBanned            Boolean   @default(false)
+  bannedUntil         DateTime?
+  banReason           String?
+  role                UserRole  @default(STUDENT)
+  major               String?
+  university          String?
+  country             String?
+  city                String?
+  academicPosition    String?
+  highestDegree       String?
+  phone               String?
+  website             String?
+  linkedin            String?
+  orcid               String?
+  googleScholar       String?
+  researchGate        String?
+  github              String?
+  customLinks         Json?     @default("[]")
+  fieldsOfStudy       String[]  @default([])
+  skills              String[]  @default([])
+  keywords            String[]  @default([])
+  preferredLanguages  String[]  @default(["ar", "en"])
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  commentLikes  CommentLike[]
+  savedPosts    SavedPost[]
+  postViews     PostView[]
+  
+  questions     Question[]    @relation("QuestionAuthor")
+  answers       Answer[]      @relation("AnswerAuthor")
+  questionVotes QuestionVote[] @relation("QuestionVotes")
+  answerVotes   AnswerVote[]  @relation("AnswerVotes")
+  
+  sentMessages      Message[] @relation("SentMessages")
+  receivedMessages  Message[] @relation("ReceivedMessages")
+  messageReactions  MessageReaction[]
+  
+  notifications     Notification[]
+  
+  collaborations    Collaboration[] @relation("CollaborationMembers")
+  ownedCollaborations Collaboration[] @relation("CollaborationOwner")
+  collaborationApplications CollaborationApplication[] @relation("CollaborationApplications")
+  
+  examResults       ExamResult[]
+  
+  topicSuggestions  TopicSuggestion[] @relation("TopicSuggestions")
+  createdEvents     Event[]           @relation("CreatedEvents")
+  
+  reportsCreated    Report[]          @relation("ReportedBy")
+  reportsResolved   Report[]          @relation("ResolvedBy")
+  
+  @@map("users")
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum ContentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Post {
+  id              String        @id @default(cuid())
+  title           String
+  content         String
+  category        String?
+  tags            String[]
+  imageUrls       String[]      @default([])
+  fileUrls        String[]      @default([])
+  isAnonymous     Boolean       @default(false)
+  archived        Boolean       @default(false)
+  views           Int           @default(0)
+  shares          Int           @default(0)
+  moderationStatus ContentStatus @default(PENDING)
+  rejectionReason String?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  reviewedBy      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  comments    Comment[]
+  likes       Like[]
+  savedBy     SavedPost[]
+  postViews   PostView[]
+  
+  @@map("posts")
+}
+
+model PostView {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, userId])
+  @@map("post_views")
+}
+
+model SavedPost {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, userId])
+  @@map("saved_posts")
+}
+
+model Comment {
+  id          String    @id @default(cuid())
+  content     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  postId      String
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  parentId    String?
+  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[] @relation("CommentReplies")
+  
+  likes       CommentLike[]
+  
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, userId])
+  @@map("likes")
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([commentId, userId])
+  @@map("comment_likes")
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  content     String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt @default(now())
+  
+  senderId    String
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  recipientId String
+  recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  
+  // Optional context for the message (e.g., collaboration that prompted the message)
+  contextType String?   // 'collaboration', 'post', 'question', etc.
+  contextId   String?   // ID of the collaboration/post/question
+  contextData Json?     // Snapshot of context data (title, description, etc.)
+  
+  // Reply functionality
+  replyToId   String?   // ID of the message being replied to
+  replyTo     Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     Message[] @relation("MessageReplies")
+  
+  // Media attachments
+  attachments Json?     // Array of {type: 'image'|'video'|'file', url: string, name: string, size: number}
+  
+  // Reactions
+  reactions   MessageReaction[]
+  
+  @@map("messages")
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  emoji     String   // The emoji reaction
+  createdAt DateTime @default(now())
+  
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  link        String?
+  createdAt   DateTime         @default(now())
+  
+  // Who the notification is for
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Who triggered the notification (actor)
+  actorId     String?
+  actorName   String?
+  actorAvatar String?
+  
+  // What the notification is about
+  targetType  String?          // post, comment, message, etc.
+  targetId    String?
+  
+  // Additional metadata
+  metadata    Json?
+  
+  @@map("notifications")
+}
+
+model AdminSecret {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_secrets")
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  REPLY
+  FOLLOW
+  MESSAGE
+  COLLAB_REQUEST
+  COLLAB_UPDATE
+  MENTION
+  EXAM
+  SYSTEM
+COLLABORATION
+}
+
+model LibraryResource {
+  id               String   @id @default(cuid())
+  title            String
+  titleAr          String?
+  author           String
+  authorAr         String?
+  institution      String?
+  institutionAr    String?
+  summary          String
+  summaryAr        String?
+  type             String   // 'book' | 'paper' | 'summary' | 'video'
+  discipline       String
+  disciplineAr     String?
+  language         String   // 'ar' | 'en' | 'other'
+  fileUrl          String
+  fileType         String   // 'pdf' | 'pptx' | 'docx' | 'epub' | 'video' | 'mp4'
+  fileSize         Int      // in bytes
+  fileSizeDisplay  String   // e.g., "12.5 MB"
+  tags             String[] @default([])
+  previewUrl       String?
+  thumbnailUrl     String?
+  videoUrl         String?
+  duration         String?  // for videos
+  durationSeconds  Int?     // for videos
+  downloads        Int      @default(0)
+  views            Int      @default(0)
+  rating           Float?
+  year             Int
+  isPreviewable    Boolean  @default(true)
+  requiresLogin    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@map("library_resources")
+}
+
+model Exam {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  difficulty  String
+  duration    Int      // in minutes
+  questions   Json     // Store questions as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  results     ExamResult[]
+  
+  @@map("exams")
+}
+
+model ExamResult {
+  id          String   @id @default(cuid())
+  score       Int
+  totalPoints Int
+  answers     Json     // Store user answers as JSON
+  createdAt   DateTime @default(now())
+  
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("exam_results")
+}
+
+model PrepResource {
+  id               String   @id @default(cuid())
+  title            String
+  titleAr          String?
+  type             String   // e.g., "Study Guide", "Practice Set"
+  typeAr           String?
+  examType         String   // 'gre', 'toefl', 'ielts', 'sat', 'gmat'
+  sections         String[] @default([]) // e.g., ['verbal', 'quant']
+  provider         String?  // e.g., 'ets', 'khan', 'internal'
+  language         String   @default("en")
+  level            String?  // 'beginner', 'intermediate', 'advanced'
+  access           String[] @default([]) // e.g., ['free', 'registration']
+  fileUrl          String
+  fileType         String   // 'pdf' | 'docx' | 'pptx' | 'zip'
+  fileSize         String   // e.g., "12.5 MB"
+  fileSizeMB       Float
+  previewUrl       String?
+  downloadUrl      String
+  isPreviewable    Boolean  @default(true)
+  requiresLogin    Boolean  @default(false)
+  downloads        Int      @default(0)
+  views            Int      @default(0)
+  publishedAt      DateTime @default(now())
+  lastUpdatedAt    DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  
+  @@map("prep_resources")
+}
+
+model PrepVideo {
+  id               String   @id @default(cuid())
+  title            String
+  titleAr          String?
+  instructor       String
+  instructorAr     String?
+  examType         String   // 'gre', 'toefl', 'ielts', 'sat', 'gmat'
+  sections         String[] @default([])
+  provider         String?
+  language         String   @default("en")
+  level            String?  // 'beginner', 'intermediate', 'advanced'
+  access           String[] @default([])
+  videoUrl         String?
+  embedUrl         String?
+  videoType        String   // 'mp4' | 'hls' | 'youtube' | 'vimeo'
+  duration         String   // e.g., "45:30"
+  durationSeconds  Int
+  durationMin      Int
+  thumbnailUrl     String?
+  captionsUrl      String?
+  attachments      Json?    // Array of attachment objects
+  views            Int      @default(0)
+  publishedAt      DateTime @default(now())
+  lastUpdatedAt    DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  
+  @@map("prep_videos")
+}
+
+model Collaboration {
+  id                String              @id @default(cuid())
+  title             String
+  description       String
+  
+  // Location & Remote
+  institution       String?
+  country           String?
+  city              String?
+  isRemote          Boolean             @default(false)
+  
+  // Duration & Timing
+  duration          String              // "12 months", "6-12 months"
+  durationMonths    Int                 // numeric duration for filtering
+  deadline          DateTime?
+  
+  // Requirements
+  skills            String[]            @default([])
+  disciplines       String[]            @default([]) // ai, ml, physics, etc.
+  applicationAreas  String[]            @default([]) // health, agriculture, etc.
+  collaborationType String[]            @default([]) // joint-research, supervision, etc.
+  degreeLevel       String[]            @default([]) // bachelor, master, phd
+  experienceYears   Int                 @default(0)
+  weeklyCommitment  Int?                // hours per week
+  workLanguages     String[]            @default(["english"])
+  
+  // Funding
+  hasFunding        Boolean             @default(false)
+  fundingTypes      String[]            @default([]) // grant, stipend, travel, etc.
+  
+  // Methodology & Data
+  methodology       String[]            @default([]) // experimental, statistical, etc.
+  dataAvailability  String?             // available, need-collection, nda-required, irb-required
+  
+  // Status
+  status            CollaborationStatus @default(OPEN)
+  applicantsCount   Int                 @default(0)
+  maxMembers        Int?
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  ownerId           String
+  owner             User                @relation("CollaborationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  members           User[]              @relation("CollaborationMembers")
+  applications      CollaborationApplication[]
+  
+  @@map("collaborations")
+}
+
+model CollaborationApplication {
+  id                String              @id @default(cuid())
+  
+  // Application content
+  fullName          String
+  institution       String
+  email             String
+  field             String
+  coverMessage      String
+  attachment        String?
+  message           String?
+  motivation        String?
+  skills            String?
+  
+  // Legacy fields (kept for backward compatibility)
+  coverLetter       String              @default("")
+  researchInterest  String?
+  availability      String?
+  relevantExperience String?
+  additionalInfo    String?
+  
+  // Status
+  status            ApplicationStatus   @default(PENDING)
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  // Relations
+  collaborationId   String
+  collaboration     Collaboration       @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  
+  applicantId       String
+  applicant         User                @relation("CollaborationApplications", fields: [applicantId], references: [id], onDelete: Cascade)
+  
+  @@unique([collaborationId, applicantId]) // Prevent duplicate applications
+  @@map("collaboration_applications")
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum CollaborationStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Question {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  category    String?
+  tags        String[]
+  views       Int       @default(0)
+  isResolved  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  authorId    String
+  author      User      @relation("QuestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  
+  answers     Answer[]
+  votes       QuestionVote[]
+  
+  @@map("questions")
+}
+
+model Answer {
+  id          String    @id @default(cuid())
+  content     String
+  isAccepted  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  questionId  String
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  authorId    String
+  author      User      @relation("AnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  
+  votes       AnswerVote[]
+  
+  @@map("answers")
+}
+
+model QuestionVote {
+  id          String    @id @default(cuid())
+  value       Int       // 1 for upvote, -1 for downvote
+  createdAt   DateTime  @default(now())
+  
+  questionId  String
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User      @relation("QuestionVotes", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([questionId, userId])
+  @@map("question_votes")
+}
+
+model AnswerVote {
+  id        String   @id @default(cuid())
+  value     Int      // 1 for upvote, -1 for downvote
+  createdAt DateTime @default(now())
+  
+  answerId  String
+  answer    Answer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation("AnswerVotes", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([answerId, userId])
+  @@map("answer_votes")
+}
+
+model TopicSuggestion {
+  id          String                @id @default(cuid())
+  topic       String
+  description String?
+  suggestedBy String
+  user        User                  @relation("TopicSuggestions", fields: [suggestedBy], references: [id], onDelete: Cascade)
+  status      TopicSuggestionStatus @default(PENDING)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@map("topic_suggestions")
+}
+
+enum TopicSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  titleAr     String?
+  description String
+  descriptionAr String?
+  type        EventType
+  startDate   DateTime
+  endDate     DateTime?
+  location    String?
+  locationAr  String?
+  time        String?
+  imageUrl    String?
+  isActive    Boolean     @default(true)
+  createdBy   String
+  user        User        @relation("CreatedEvents", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("events")
+}
+
+enum EventType {
+  CONFERENCE
+  WORKSHOP
+  SEMINAR
+  WEBINAR
+  LECTURE
+  SYMPOSIUM
+  DEADLINE
+  OTHER
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  type        ReportType
+  reason      String
+  description String?
+  status      ReportStatus @default(PENDING)
+  
+  // Reporter
+  reportedBy  String
+  reporter    User         @relation("ReportedBy", fields: [reportedBy], references: [id], onDelete: Cascade)
+  
+  // Target (what is being reported)
+  targetType  String       // 'post', 'comment', 'user', 'question', 'answer', 'collaboration'
+  targetId    String
+  
+  // Resolved status - when resolved, this target won't show up again
+  isResolved  Boolean      @default(false)
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  resolver    User?        @relation("ResolvedBy", fields: [resolvedBy], references: [id], onDelete: SetNull)
+  
+  @@index([targetType, targetId, status])
+  @@index([status, isResolved])
+  @@index([reportedBy, targetType, targetId])
+  @@map("reports")
+}
+
+enum ReportType {
+  SPAM
+  INAPPROPRIATE
+  HARASSMENT
+  COPYRIGHT
+  MISINFORMATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}

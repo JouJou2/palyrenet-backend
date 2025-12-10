@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "fieldsOfStudy" SET DEFAULT ARRAY[]::TEXT[],
+ALTER COLUMN "keywords" SET DEFAULT ARRAY[]::TEXT[],
+ALTER COLUMN "preferredLanguages" SET DEFAULT ARRAY['ar', 'en']::TEXT[],
+ALTER COLUMN "skills" SET DEFAULT ARRAY[]::TEXT[];

@@ -1,0 +1,67 @@
+import { Injectable } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { Strategy as OAuth2Strategy } from 'passport-oauth2';
+import { ConfigService } from '@nestjs/config';
+import { AuthService } from '../auth.service';
+
+@Injectable()
+export class OrcidStrategy extends PassportStrategy(OAuth2Strategy, 'orcid') {
+  constructor(
+    private configService: ConfigService,
+    private authService: AuthService,
+  ) {
+    const environment = configService.get<string>('ORCID_ENVIRONMENT') || 'sandbox';
+    const baseUrl = environment === 'production' 
+      ? 'https://orcid.org' 
+      : 'https://sandbox.orcid.org';
+
+    super({
+      authorizationURL: `${baseUrl}/oauth/authorize`,
+      tokenURL: `${baseUrl}/oauth/token`,
+      clientID: configService.get<string>('ORCID_CLIENT_ID') || '',
+      clientSecret: configService.get<string>('ORCID_CLIENT_SECRET') || '',
+      callbackURL: configService.get<string>('ORCID_CALLBACK_URL') || '',
+      scope: '/authenticate',
+    });
+  }
+
+  async validate(
+    accessToken: string,
+    refreshToken: string,
+    profile: any,
+    done: any,
+  ): Promise<any> {
+    // ORCID returns user info in the token response
+    const orcidId = profile.orcid || profile.id;
+    const name = profile.name || 'ORCID User';
+    
+    const user = await this.authService.validateOAuthUser({
+      provider: 'orcid',
+      providerId: orcidId,
+      email: null, // ORCID doesn't always provide email
+      fullName: name,
+      avatarUrl: null,
+    });
+
+    done(null, user);
+  }
+
+  userProfile(accessToken: string, done: any) {
+    // Override to handle ORCID's specific response format
+    this._oauth2.get(
+      'https://pub.orcid.org/v3.0/' + accessToken + '/record',
+      accessToken,
+      (err: any, body: any) => {
+        if (err) {
+          return done(err);
+        }
+        try {
+          const json = JSON.parse(body);
+          done(null, json);
+        } catch (e) {
+          done(e);
+        }
+      },
+    );
+  }
+}
