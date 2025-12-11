@@ -79,70 +79,84 @@ export class AuthController {
     );
   }
 
-  @Post('upload-avatar')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/avatars',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `avatar-${unique}${extname(file.originalname)}`);
-        },
-      }),
-      fileFilter: (req, file, cb) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
-          return cb(new Error('Only image files are allowed!'), false);
-        }
-        cb(null, true);
+@Post('upload-avatar')
+@UseGuards(JwtAuthGuard)
+@UseInterceptors(
+  FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/avatars',
+      filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `avatar-${unique}${extname(file.originalname)}`);
       },
-      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
     }),
-  )
-  async uploadAvatar(@Request() req, @UploadedFile() file: MulterFile) {   // ✅ FIXED
-    if (!file) throw new BadRequestException('No file uploaded');
+    fileFilter: (req, file, cb) => {
+      if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+        return cb(new Error('Only image files are allowed!'), false);
+      }
+      cb(null, true);
+    },
+    limits: { fileSize: 2 * 1024 * 1024 },
+  }),
+)
+async uploadAvatar(@Request() req, @UploadedFile() file: MulterFile) {
+  if (!file) throw new BadRequestException('No file uploaded');
 
-    try {
-      const url = `${process.env.BACKEND_URL}/uploads/...`;
+  try {
+    // Use BACKEND_URL if available, otherwise the request host
+    const host =
+      process.env.BACKEND_URL ||
+      `${req.protocol}://${req.get('host')}`;
 
-      await this.authService.updateProfile(req.user.id, { avatarUrl: url });
-      return { success: true, url };
-    } catch (e) {
-      throw new InternalServerErrorException('Failed to upload avatar');
-    }
+    const url = `${host}/uploads/avatars/${file.filename}`;
+
+    await this.authService.updateProfile(req.user.id, { avatarUrl: url });
+
+    return { success: true, url };
+  } catch (e) {
+    throw new InternalServerErrorException('Failed to upload avatar');
   }
+}
 
-  @Post('upload-cover')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/covers',
-        filename: (req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `cover-${unique}${extname(file.originalname)}`);
-        },
-      }),
-      fileFilter: (req, file, cb) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
-          return cb(new Error('Only image files are allowed!'), false);
-        }
-        cb(null, true);
+
+ @Post('upload-cover')
+@UseGuards(JwtAuthGuard)
+@UseInterceptors(
+  FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/covers',
+      filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `cover-${unique}${extname(file.originalname)}`);
       },
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
-  )
-  async uploadCover(@Request() req, @UploadedFile() file: MulterFile) {   // ✅ FIXED
-    if (!file) throw new BadRequestException('No file uploaded');
+    fileFilter: (req, file, cb) => {
+      if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+        return cb(new Error('Only image files are allowed!'), false);
+      }
+      cb(null, true);
+    },
+    limits: { fileSize: 5 * 1024 * 1024 },
+  }),
+)
+async uploadCover(@Request() req, @UploadedFile() file: MulterFile) {
+  if (!file) throw new BadRequestException('No file uploaded');
 
-    try {
-      const url = `http://localhost:3001/uploads/covers/${file.filename}`;
-      await this.authService.updateProfile(req.user.id, { coverUrl: url });
-      return { success: true, url };
-    } catch (e) {
-      throw new InternalServerErrorException('Failed to upload cover');
-    }
+  try {
+    // Use BACKEND_URL if defined, otherwise fallback to auto-detected host
+    const host =
+      process.env.BACKEND_URL ||
+      `${req.protocol}://${req.get('host')}`;
+
+    const url = `${host}/uploads/covers/${file.filename}`;
+
+    await this.authService.updateProfile(req.user.id, { coverUrl: url });
+
+    return { success: true, url };
+  } catch (e) {
+    throw new InternalServerErrorException('Failed to upload cover');
   }
+}
 
   @Patch('promote-to-admin/:userId')
   @UseGuards(JwtAuthGuard)
