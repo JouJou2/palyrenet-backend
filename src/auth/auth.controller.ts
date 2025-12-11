@@ -103,7 +103,8 @@ export class AuthController {
     if (!file) throw new BadRequestException('No file uploaded');
 
     try {
-      const url = `http://localhost:3001/uploads/avatars/${file.filename}`;
+      const url = `${process.env.BACKEND_URL}/uploads/...`;
+
       await this.authService.updateProfile(req.user.id, { avatarUrl: url });
       return { success: true, url };
     } catch (e) {
