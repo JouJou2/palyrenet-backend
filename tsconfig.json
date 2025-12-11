@@ -4,6 +4,9 @@
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node", "express", "multer"],
+
     "isolatedModules": true,
     "declaration": true,
     "removeComments": true,
