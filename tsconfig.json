@@ -5,7 +5,8 @@
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
     "typeRoots": ["./node_modules/@types"],
-    "types": ["node", "express", "multer"],
+    "types": ["node", "express"],
+    
 
     "isolatedModules": true,
     "declaration": true,
