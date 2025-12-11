@@ -13,51 +13,27 @@ async function bootstrap() {
     bufferLogs: true,
   });
 
-  // Custom logger
   const logger = new LoggerService();
   logger.setContext('Bootstrap');
   app.useLogger(logger);
 
   const isDevelopment = process.env.NODE_ENV !== 'production';
 
-  const commonCspDirectives: Record<string, readonly string[]> = {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'"],
-    styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
-    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-    connectSrc: [
-      "'self'",
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'https:',
-    ],
-    fontSrc: ["'self'", 'https:', 'data:'],
-    mediaSrc: ["'self'", 'data:', 'blob:'],
-    objectSrc: ["'none'"],
-    frameAncestors: ["'self'"],
-  };
-
-  const devConnectSrc = [
-    "'self'",
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
+  // ==============================================
+  // ✅ Allowed Frontend Domains
+  // ==============================================
+  const allowedOrigins = [
+    'https://palyrenet.com',
+    'https://www.palyrenet.com',
+    'https://palyrenet-backend.onrender.com',
     'http://localhost:5173',
-    'http://127.0.0.1:5173',
+    'http://localhost:3000',
     'http://localhost:3001',
-    'http://127.0.0.1:3001',
-    'ws://localhost:3000',
-    'ws://127.0.0.1:3000',
-    'ws://localhost:3001',
-    'ws://127.0.0.1:3001',
-    'ws://localhost:5173',
-    'ws://127.0.0.1:5173',
-    'https:',
   ];
 
-  app.disable('x-powered-by');
-
+  // ==============================================
+  // ✅ Helmet (CSP + Security Headers)
+  // ==============================================
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -66,26 +42,38 @@ async function bootstrap() {
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          ...commonCspDirectives,
-          connectSrc: isDevelopment ? devConnectSrc : commonCspDirectives.connectSrc,
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+          imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+          fontSrc: ["'self'", 'https:', 'data:'],
+          connectSrc: [
+            "'self'",
+            ...allowedOrigins,
+            'ws://localhost:3001',
+            'wss://palyrenet-backend.onrender.com',
+          ],
+          mediaSrc: ["'self'", 'data:', 'blob:'],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'self'"],
         },
       },
     }),
   );
 
-  // Serve static files from uploads directory
+  // ==============================================
+  // ✅ Serve Static Upload Files
+  // ==============================================
   const uploadsPath = join(process.cwd(), 'uploads');
-  logger.log(`📁 Serving static files from: ${uploadsPath}`);
-  
+  logger.log(`📁 Serving uploads: ${uploadsPath}`);
+
   app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
   });
 
-  // Enable CORS with environment variable support
-  const allowedOrigins = process.env.FRONTEND_URL
-    ? [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000']
-    : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001'];
-
+  // ==============================================
+  // ✅ CORS CONFIGURATION
+  // ==============================================
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
@@ -93,38 +81,48 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
-  // Global pipes for validation
+  // ==============================================
+  // ✅ Request Validation
+  // ==============================================
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
-  // Global exception filter
+  // ==============================================
+  // ✅ Global Error Handler
+  // ==============================================
   app.useGlobalFilters(new HttpExceptionFilter(logger));
 
-  // Global logging interceptor (only in development)
-  if (process.env.NODE_ENV !== 'production') {
+  // ==============================================
+  // ✅ Logging Interceptor (Dev only)
+  // ==============================================
+  if (isDevelopment) {
     app.useGlobalInterceptors(new LoggingInterceptor(logger));
   }
 
-  // Trust proxy (important for production behind reverse proxy)
+  // ==============================================
+  // 🔥 PROXY FIX (Render → Hostinger)
+  // ==============================================
   app.set('trust proxy', 1);
 
+  // ==============================================
+  // 🚀 Start Server
+  // ==============================================
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  
-  logger.log(`🚀 Application is running on: http://localhost:${port}`);
-  logger.log(`📊 Health check available at: http://localhost:${port}/health`);
-  logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+  logger.log(`🚀 Backend Online → Port ${port}`);
+  logger.log(`🌍 Frontend Allowed → ${allowedOrigins.join(', ')}`);
+  logger.log(`📊 Health Check → /health`);
+  logger.log(`📦 Environment → ${process.env.NODE_ENV || 'development'}`);
 }
 
 bootstrap().catch((error) => {
-  console.error('❌ Application failed to start:', error);
+  console.error('❌ Backend failed to start:', error);
   process.exit(1);
 });
