@@ -1,4 +1,18 @@
-import { Controller, Post, Body, Get, UseGuards, Request, Patch, Param, Query, UseInterceptors, UploadedFile, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Request,
+  Patch,
+  Param,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -8,6 +22,16 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
+// ✅ Custom Multer file type (works everywhere)
+type MulterFile = {
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  filename: string;
+  size: number;
+  buffer?: Buffer;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -62,9 +86,8 @@ export class AuthController {
       storage: diskStorage({
         destination: './uploads/avatars',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          cb(null, `avatar-${uniqueSuffix}${ext}`);
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `avatar-${unique}${extname(file.originalname)}`);
         },
       }),
       fileFilter: (req, file, cb) => {
@@ -76,16 +99,14 @@ export class AuthController {
       limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
     }),
   )
-  async uploadAvatar(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No file uploaded');
-    }
+  async uploadAvatar(@Request() req, @UploadedFile() file: MulterFile) {   // ✅ FIXED
+    if (!file) throw new BadRequestException('No file uploaded');
 
     try {
       const url = `http://localhost:3001/uploads/avatars/${file.filename}`;
       await this.authService.updateProfile(req.user.id, { avatarUrl: url });
       return { success: true, url };
-    } catch (error) {
+    } catch (e) {
       throw new InternalServerErrorException('Failed to upload avatar');
     }
   }
@@ -97,9 +118,8 @@ export class AuthController {
       storage: diskStorage({
         destination: './uploads/covers',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          cb(null, `cover-${uniqueSuffix}${ext}`);
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `cover-${unique}${extname(file.originalname)}`);
         },
       }),
       fileFilter: (req, file, cb) => {
@@ -111,16 +131,14 @@ export class AuthController {
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
-  async uploadCover(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No file uploaded');
-    }
+  async uploadCover(@Request() req, @UploadedFile() file: MulterFile) {   // ✅ FIXED
+    if (!file) throw new BadRequestException('No file uploaded');
 
     try {
       const url = `http://localhost:3001/uploads/covers/${file.filename}`;
       await this.authService.updateProfile(req.user.id, { coverUrl: url });
       return { success: true, url };
-    } catch (error) {
+    } catch (e) {
       throw new InternalServerErrorException('Failed to upload cover');
     }
   }
@@ -129,19 +147,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async promoteToAdmin(@Request() req, @Param('userId') userId: string, @Body() body: { password: string }) {
     const currentUser = await this.authService.getUserById(req.user.id);
+
     if (!currentUser || currentUser.role !== 'ADMIN') {
       throw new BadRequestException('Only admins can promote users');
     }
-    
-    // Verify admin password
-    if (!body.password) {
-      throw new BadRequestException('Password is required');
-    }
-    const passwordValid = await this.authService.verifyPassword(req.user.id, body.password);
-    if (!passwordValid) {
-      throw new BadRequestException('Invalid password');
-    }
-    
+
+    if (!body.password) throw new BadRequestException('Password is required');
+
+    const isValid = await this.authService.verifyPassword(req.user.id, body.password);
+    if (!isValid) throw new BadRequestException('Invalid password');
+
     return this.authService.promoteToAdmin(userId);
   }
 }

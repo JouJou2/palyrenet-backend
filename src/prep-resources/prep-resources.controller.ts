@@ -22,6 +22,19 @@ import { UpdatePrepVideoDto } from './dto/update-prep-video.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { multerConfig, videoMulterConfig } from '../common/multer.config';
 
+// ✅ Custom Multer File type (same as other controllers)
+type MulterFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination?: string;
+  filename: string;
+  path?: string;
+  buffer?: Buffer;
+};
+
 @Controller('prep-resources')
 export class PrepResourcesController {
   constructor(private prepResourcesService: PrepResourcesService) {}
@@ -64,8 +77,8 @@ export class PrepResourcesController {
   @UseInterceptors(FileInterceptor('file', multerConfig))
   async uploadResource(
     @Request() req,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() data: any, // Use 'any' to bypass DTO validation for FormData
+    @UploadedFile() file: MulterFile,   // ✅ FIXED
+    @Body() data: any,
   ) {
     if (req.user.role !== 'ADMIN') {
       throw new BadRequestException('Only admins can upload prep resources');
@@ -82,11 +95,18 @@ export class PrepResourcesController {
     const fileSizeMB = (fileSize / 1048576).toFixed(1) + ' MB';
     const fileUrl = `/uploads/${file.filename}`;
 
-    // Transform FormData string values to proper types
     const resourceData = {
       ...data,
-      sections: Array.isArray(data.sections) ? data.sections : (typeof data.sections === 'string' ? JSON.parse(data.sections) : []),
-      access: Array.isArray(data.access) ? data.access : (typeof data.access === 'string' ? JSON.parse(data.access) : []),
+      sections: Array.isArray(data.sections)
+        ? data.sections
+        : typeof data.sections === 'string'
+        ? JSON.parse(data.sections)
+        : [],
+      access: Array.isArray(data.access)
+        ? data.access
+        : typeof data.access === 'string'
+        ? JSON.parse(data.access)
+        : [],
       isPreviewable: String(data.isPreviewable) === 'true' || data.isPreviewable === true,
       requiresLogin: String(data.requiresLogin) === 'true' || data.requiresLogin === true,
       fileUrl,
@@ -172,8 +192,8 @@ export class PrepResourcesController {
   @UseInterceptors(FileInterceptor('file', videoMulterConfig))
   async uploadVideo(
     @Request() req,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() data: any, // Use 'any' to bypass DTO validation for FormData
+    @UploadedFile() file: MulterFile,   // ✅ FIXED
+    @Body() data: any,
   ) {
     if (req.user.role !== 'ADMIN') {
       throw new BadRequestException('Only admins can upload prep videos');
@@ -188,15 +208,21 @@ export class PrepResourcesController {
       throw new BadRequestException('Either instructor or instructorAr is required');
     }
 
-    // Auto-detect video properties
     const videoType = file.mimetype.split('/')[1] || 'mp4';
     const videoUrl = `/uploads/videos/${file.filename}`;
 
-    // Transform FormData string values to proper types
     const videoData = {
       ...data,
-      sections: Array.isArray(data.sections) ? data.sections : (typeof data.sections === 'string' ? JSON.parse(data.sections) : []),
-      access: Array.isArray(data.access) ? data.access : (typeof data.access === 'string' ? JSON.parse(data.access) : []),
+      sections: Array.isArray(data.sections)
+        ? data.sections
+        : typeof data.sections === 'string'
+        ? JSON.parse(data.sections)
+        : [],
+      access: Array.isArray(data.access)
+        ? data.access
+        : typeof data.access === 'string'
+        ? JSON.parse(data.access)
+        : [],
       videoUrl,
       embedUrl: videoUrl,
       videoType,
